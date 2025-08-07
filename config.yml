@@ -1,0 +1,19 @@
+redis_exporter:
+  enabled: true
+  interval: 5000 # in ms
+  receiver_url: "http://localhost:4000/metrics/redis"
+
+mysql_exporter:
+  enabled: false
+  interval: 10000
+  receiver_url: ""
+
+mongodb_exporter:
+  enabled: false
+  interval: 10000
+  receiver_url: ""
+
+server_exporter:
+  enabled: false
+  interval: 10000
+  receiver_url: ""
