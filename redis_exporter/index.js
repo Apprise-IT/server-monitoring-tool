@@ -4,23 +4,22 @@ const axios = require('axios');
 let client; // Declare client here for scope
 
 async function getRedisStats() {
-  return new Promise((resolve, reject) => {
-    client.info((err, info) => {
-      if (err) return reject(err);
-
-      const metrics = {};
-      info.split('\n').forEach((line) => {
-        if (line && !line.startsWith('#')) {
-          const [key, value] = line.split(':');
-          if (key && value) {
-            const numVal = Number(value);
-            metrics[key.trim()] = isNaN(numVal) ? value.trim() : numVal;
-          }
+  try {
+    const info = await client.info();  // no callback
+    const metrics = {};
+    info.split('\n').forEach((line) => {
+      if (line && !line.startsWith('#')) {
+        const [key, value] = line.split(':');
+        if (key && value) {
+          const numVal = Number(value);
+          metrics[key.trim()] = isNaN(numVal) ? value.trim() : numVal;
         }
-      });
-      resolve(metrics);
+      }
     });
-  });
+    return metrics;
+  } catch (err) {
+    throw err;
+  }
 }
 
 function start(config) {
