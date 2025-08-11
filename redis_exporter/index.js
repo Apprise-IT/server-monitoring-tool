@@ -52,7 +52,7 @@ function start(config) {
       } catch (err) {
         console.error('❌ Error exporting Redis metrics:', err.message);
       }
-    }, config.export_interval || 30000); // fallback 30 sec
+    }, (config.export_interval || 30) * 1000); // fallback 30 sec
   }).catch(console.error);
 }
 
