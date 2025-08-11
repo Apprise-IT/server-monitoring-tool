@@ -1,7 +1,10 @@
 redis_exporter:
   enabled: true
-  interval: 5000 # in ms
-  receiver_url: "http://localhost:4000/metrics/redis"
+  redis_host: "127.0.0.1"
+  redis_port: 6379
+  redis_password: ""
+  receiver_url: "http://157.245.207.91:4000/metrics/redis"
+  export_interval: 30  # seconds
 
 mysql_exporter:
   enabled: false
