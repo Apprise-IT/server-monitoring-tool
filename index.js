@@ -1,15 +1,41 @@
+// main.js
 const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 
 // Load YAML config
 const configPath = path.join(__dirname, 'config.yml');
-const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
-
-// Start Redis Exporter if enabled
-if (config.redis_exporter?.enabled) {
-  const redisExporter = require('./redis-exporter');
-  redisExporter.start(config.redis_exporter);
+let config;
+try {
+  config = yaml.load(fs.readFileSync(configPath, 'utf8'));
+} catch (err) {
+  console.error("❌ Failed to load config.yml:", err);
+  process.exit(1);
 }
 
-// Future: similar blocks for MySQL, MongoDB, Server exporter
+// Helper to start an exporter if config is present
+function initExporter(name, folder) {
+  const exporterConfig = config[`${name}_exporter`];
+
+  if (exporterConfig?.enabled) {
+    console.log(`✅ Starting ${name} exporter...`);
+    try {
+      const exporter = require(`./${folder}`);
+      if (typeof exporter.start === 'function') {
+        exporter.start(exporterConfig);
+      } else {
+        console.warn(`⚠ ${name} exporter has no start() method, skipping.`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to start ${name} exporter:`, err);
+    }
+  } else {
+    console.log(`⏭ Skipping ${name} exporter (disabled or not configured).`);
+  }
+}
+
+// Initialize all exporters
+initExporter("redis", "redis-exporter");
+// initExporter("mysql", "mysql-exporter");
+// initExporter("mongodb", "mongodb-exporter");
+// initExporter("server", "server-exporter");
