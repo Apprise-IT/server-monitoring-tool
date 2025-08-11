@@ -12,16 +12,17 @@ async function getRedisStats() {
     client.info((err, info) => {
       if (err) return reject(err);
       
-      const stats = {};
+      const metrics = {};
       info.split('\n').forEach((line) => {
         if (line && !line.startsWith('#')) {
           const [key, value] = line.split(':');
           if (key && value) {
-            stats[key.trim()] = value.trim();
+            const numVal = Number(value);
+            metrics[key.trim()] = isNaN(numVal) ? value.trim() : numVal;
           }
         }
       });
-      resolve(stats);
+      resolve(metrics);
     });
   });
 }
@@ -32,8 +33,14 @@ function start(config) {
 
     setInterval(async () => {
       try {
-        const stats = await getRedisStats();
-        await axios.post(config.receiver_url, stats);
+        const metrics = await getRedisStats();
+        const payload = {
+          source: 'redis',
+          metrics,
+          timestamp: new Date().toISOString()
+        };
+
+        await axios.post(config.receiver_url, payload);
         console.log(`✔️ Sent Redis metrics to ${config.receiver_url}`);
       } catch (err) {
         console.error('❌ Error exporting Redis metrics:', err.message);
