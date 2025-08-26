@@ -40,7 +40,7 @@ server_exporter:
   receiver_url: ""
   
 slow_query_exporter:
-  enabled: true
+  enabled: false
   export_interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/slow_queries"
 
