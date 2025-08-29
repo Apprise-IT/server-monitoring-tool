@@ -34,10 +34,10 @@ mongodb_exporter:
   log_check_interval: 300
   max_logs_per_batch: 100
 
-server_exporter:
-  enabled: false
-  interval: 10000
-  receiver_url: ""
+linux_exporter:
+  enabled: true
+  interval: 30
+  receiver_url: "http://157.245.207.91:4000/metrics/linux"
   
 slow_query_exporter:
   enabled: false
