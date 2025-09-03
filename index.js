@@ -22,7 +22,11 @@ function initExporter(name, folder) {
     try {
       const exporter = require(`./${folder}`);
       if (typeof exporter.start === 'function') {
-        exporter.start(exporterConfig);
+        // ✅ Merge global config into exporterConfig
+        exporter.start({
+          ...exporterConfig,
+          global: config.global, 
+        });
       } else {
         console.warn(`⚠ ${name} exporter has no start() method, skipping.`);
       }

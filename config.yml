@@ -1,3 +1,5 @@
+global:
+  app_name: "livo"
 redis_exporter:
   enabled: false
   redis_host: "127.0.0.1"
