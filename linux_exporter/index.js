@@ -60,7 +60,7 @@ async function start(config) {
         ip,
         source,
         metrics,
-        timestamp: timestamp.toISOString(),
+        timestamp: timestamp,
         file_path: `metrics_collector/${app}/${ip}/${source}/${dateStr}/${timeStr}.jsonl.gz`,
         log_file_path: `metrics_collector/${app}/${ip}/logs/${source}/${dateStr}/${timeStr}.jsonl.gz`
       };
