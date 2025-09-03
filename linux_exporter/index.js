@@ -1,6 +1,7 @@
 const osu = require('node-os-utils');
 const axios = require('axios');
 const os = require('os');
+const moment = require('moment');
 
 function getServerIP() {
   const interfaces = os.networkInterfaces();
@@ -51,7 +52,7 @@ async function start(config) {
   setInterval(async () => {
     try {
       const metrics = await getLinuxStats();
-      const timestamp = new Date().toISOString();
+      const timestamp = moment();
       const dateStr = timestamp.format('YYYY-MM-DD');
       const timeStr = timestamp.format('hh:mm:ssA');
 
@@ -60,7 +61,7 @@ async function start(config) {
         ip,
         source,
         metrics,
-        timestamp: timestamp,
+        timestamp: timestamp.toISOString(),
         file_path: `metrics_collector/${app}/${ip}/${source}/${dateStr}/${timeStr}.jsonl.gz`,
         log_file_path: `metrics_collector/${app}/${ip}/logs/${source}/${dateStr}/${timeStr}.jsonl.gz`
       };
