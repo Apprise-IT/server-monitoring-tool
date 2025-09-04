@@ -41,15 +41,15 @@ async function getLinuxStats() {
 }
 
 async function start(config) {
-  console.log('✅ Linux Exporter started');
+  console.log('? Linux Exporter started');
 
   const ip = getServerIP();
   const app = config.global?.app_name || 'unknown_app';
+  const purpose = config.global?.purpose || '';
   const source = 'linux';
-
   const interval = (config.interval || 30) * 1000; // ms
 
-  setInterval(async () => {
+  async function sendMetrics() {
     try {
       const metrics = await getLinuxStats();
       const timestamp = moment();
@@ -59,6 +59,7 @@ async function start(config) {
       const payload = {
         app,
         ip,
+        purpose,
         source,
         metrics,
         timestamp: timestamp.toISOString(),
@@ -67,11 +68,24 @@ async function start(config) {
       };
 
       await axios.post(config.receiver_url, payload);
-      console.log(`📤 Sent Linux metrics to ${config.receiver_url}`);
+      console.log(`?? Sent Linux metrics to ${config.receiver_url}`);
     } catch (err) {
-      console.error('❌ Error exporting Linux metrics:', err.message);
+      console.error('? Error exporting Linux metrics:', err.message);
     }
-  }, interval);
+  }
+
+  function scheduleNext() {
+    const now = Date.now();
+    const next = Math.ceil(now / interval) * interval;
+    const delay = next - now;
+
+    setTimeout(async () => {
+      await sendMetrics();
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
 }
 
 module.exports = { start };

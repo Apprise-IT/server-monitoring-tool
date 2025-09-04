@@ -1,5 +1,6 @@
 global:
   app_name: "livo"
+  purpose: "LIVO API"
 redis_exporter:
   enabled: false
   redis_host: "127.0.0.1"
