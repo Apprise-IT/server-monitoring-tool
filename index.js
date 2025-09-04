@@ -39,8 +39,8 @@ function initExporter(name, folder) {
 }
 
 // Initialize all exporters
-// initExporter("redis", "redis_exporter");
-// initExporter("mysql", "mysql_exporter");
-// initExporter("mongodb", "mongodb_exporter");
-// initExporter("slow_query", "slow_query_exporter");
+initExporter("redis", "redis_exporter");
+initExporter("mysql", "mysql_exporter");
+initExporter("mongodb", "mongodb_exporter");
+initExporter("slow_query", "slow_query_exporter");
 initExporter("linux", "linux_exporter");
