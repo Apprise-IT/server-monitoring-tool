@@ -2,6 +2,7 @@ const osu = require('node-os-utils');
 const axios = require('axios');
 const os = require('os');
 const moment = require('moment');
+const { exec } = require('child_process');
 
 function getServerIP() {
   const interfaces = os.networkInterfaces();
@@ -15,6 +16,29 @@ function getServerIP() {
   return 'unknown_ip';
 }
 
+// New helper: get process stats aggregated by command
+function getProcessStats() {
+  return new Promise((resolve, reject) => {
+    const cmd = `
+      ps -eo comm,%cpu,%mem | awk 'NR>1 {cpu[$1]+=$2; mem[$1]+=$3; count[$1]++} END {for (p in count) print p,count[p],cpu[p],mem[p]}' | sort -k3 -nr
+    `;
+    exec(cmd, (err, stdout, stderr) => {
+      if (err) return reject(err);
+      const lines = stdout.trim().split('\n');
+      const processes = lines.map(line => {
+        const [name, instances, cpu, mem] = line.trim().split(/\s+/);
+        return {
+          name,
+          instances: parseInt(instances, 10),
+          total_cpu_percent: parseFloat(cpu),
+          total_mem_percent: parseFloat(mem)
+        };
+      });
+      resolve(processes);
+    });
+  });
+}
+
 async function getLinuxStats() {
   const cpuUsage = await osu.cpu.usage();
   const memInfo = await osu.mem.info();
@@ -22,6 +46,7 @@ async function getLinuxStats() {
   const netStats = await osu.netstat.inOut();
   const uptime = osu.os.uptime();
   const loadAvg = os.loadavg();
+  const processes = await getProcessStats(); // aggregated processes
 
   return {
     cpu_usage_percent: cpuUsage,
@@ -36,10 +61,12 @@ async function getLinuxStats() {
     uptime_seconds: uptime,
     load_avg_1: loadAvg[0],
     load_avg_5: loadAvg[1],
-    load_avg_15: loadAvg[2]
+    load_avg_15: loadAvg[2],
+    processes // <-- added here
   };
 }
 
+// rest of your start function remains unchanged
 async function start(config) {
   console.log('? Linux Exporter started');
 
