@@ -19,7 +19,7 @@ function getServerIP() {
   return 'unknown_ip';
 }
 
-// Fetch MongoDB server metrics
+// Fetch MongoDB server metrics (lightweight)
 async function getMongoStats() {
   try {
     if (!db) throw new Error('MongoDB client not connected');
@@ -28,17 +28,34 @@ async function getMongoStats() {
     return {
       status: 'up',
       uptime_seconds: serverStatus.uptime,
+
+      // Connections
       connections_current: serverStatus.connections.current,
       connections_available: serverStatus.connections.available,
+
+      // Memory (MB)
       mem_resident_mb: serverStatus.mem.resident,
       mem_virtual_mb: serverStatus.mem.virtual,
       mem_mapped_mb: serverStatus.mem.mapped,
+
+      // Operation counters
       opcounters_insert: serverStatus.opcounters.insert,
       opcounters_query: serverStatus.opcounters.query,
       opcounters_update: serverStatus.opcounters.update,
       opcounters_delete: serverStatus.opcounters.delete,
       opcounters_getmore: serverStatus.opcounters.getmore,
       opcounters_command: serverStatus.opcounters.command,
+
+      // Network (lightweight)
+      network_bytes_in: serverStatus.network?.bytesIn || 0,
+      network_bytes_out: serverStatus.network?.bytesOut || 0,
+      network_num_requests: serverStatus.network?.numRequests || 0,
+
+      // Lock & queue stats
+      globalLock_active_clients_readers: serverStatus.globalLock?.activeClients?.readers || 0,
+      globalLock_active_clients_writers: serverStatus.globalLock?.activeClients?.writers || 0,
+      globalLock_current_queue_readers: serverStatus.globalLock?.currentQueue?.readers || 0,
+      globalLock_current_queue_writers: serverStatus.globalLock?.currentQueue?.writers || 0,
     };
   } catch (err) {
     console.error('❌ getMongoStats failed:', err.message);
@@ -56,6 +73,13 @@ async function getMongoStats() {
       opcounters_delete: 0,
       opcounters_getmore: 0,
       opcounters_command: 0,
+      network_bytes_in: 0,
+      network_bytes_out: 0,
+      network_num_requests: 0,
+      globalLock_active_clients_readers: 0,
+      globalLock_active_clients_writers: 0,
+      globalLock_current_queue_readers: 0,
+      globalLock_current_queue_writers: 0,
     };
   }
 }

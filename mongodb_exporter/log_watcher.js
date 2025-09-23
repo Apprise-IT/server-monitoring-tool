@@ -1,59 +1,80 @@
 const fs = require('fs');
 const axios = require('axios');
+const os = require('os');
+const moment = require('moment');
 
-let lastSize = 0;
+function getServerIP() {
+  const interfaces = os.networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    for (const alias of iface) {
+      if (alias.family === 'IPv4' && !alias.internal) return alias.address;
+    }
+  }
+  return 'unknown_ip';
+}
 
-async function checkMongoLogs(config) {
+async function checkMongoLogs(config, app, ip, purpose) {
   const logFile = config.mongo_log_file || '/var/log/mongodb/mongod.log';
   const maxLogsPerBatch = config.max_logs_per_batch || 100;
 
   try {
-    const stats = fs.statSync(logFile);
+    const data = fs.readFileSync(logFile, 'utf8');
+    const lines = data.split('\n').filter(l => l.trim());
+    const errorLines = lines.filter(l => /error|warn/i.test(l));
+    
+    if (errorLines.length === 0) {
+      console.log('â„¹ No MongoDB error logs found');
+      return;
+    }
 
-    // Reset if rotated or truncated
-    if (stats.size < lastSize) lastSize = 0;
+    // Take only last maxLogsPerBatch
+    const limitedErrors = errorLines.slice(-maxLogsPerBatch);
 
-    const stream = fs.createReadStream(logFile, { start: lastSize, end: stats.size, encoding: 'utf8' });
-    let buffer = '';
+    const logs = limitedErrors.map(line => ({
+      source: 'mongodb',
+      level: /error/i.test(line) ? 'error' : 'warn',
+      message: line,
+      timestamp: new Date().toISOString(),
+    }));
 
-    stream.on('data', chunk => buffer += chunk);
+    const timestamp = moment();
+    const dateStr = timestamp.format('YYYY-MM-DD');
+    const timeStr = timestamp.format('hh:mm:ssA');
 
-    stream.on('end', async () => {
-      lastSize = stats.size;
+    const payload = {
+      app,
+      ip,
+      purpose,
+      source: 'mongo_log_watcher',
+      logs,
+      timestamp: timestamp.toISOString(),
+      file_path: `metrics_collector/${app}/${ip}/mongo_logs/${dateStr}/${timeStr}.jsonl.gz`,
+      log_file_path: `metrics_collector/${app}/${ip}/logs/mongo/${dateStr}/${timeStr}.jsonl.gz`
+    };
 
-      const lines = buffer.split('\n').filter(l => l.trim());
-      const errorLines = lines.filter(l => /error|warn/i.test(l));
+    console.log({ payload });
 
-      if (errorLines.length > 0) {
-        const limitedErrors = errorLines.slice(-maxLogsPerBatch);
+    try {
+      await axios.post(config.receiver_url_logs, payload);
+      console.log(`âœ… Exported ${logs.length} MongoDB logs to ${config.receiver_url_logs}`);
+    } catch (err) {
+      console.error('âŒ Failed to send MongoDB logs:', err.message);
+    }
 
-        const logs = limitedErrors.map(line => ({
-          source: 'mongodb',
-          level: /error/i.test(line) ? 'error' : 'warn',
-          message: line,
-          timestamp: new Date().toISOString(),
-        }));
-
-        try {
-          await axios.post(config.receiver_url_logs, { logs });
-          console.log(`?? Exported ${logs.length} MongoDB logs`);
-        } catch (err) {
-          console.error('? Failed to send MongoDB logs:', err.message);
-        }
-      } else {
-        console.log('?? No new MongoDB error logs');
-      }
-    });
   } catch (err) {
-    console.error('? MongoDB log watcher error:', err.message);
+    console.error('âŒ MongoDB log watcher error:', err.message);
   }
 }
 
 function startLogWatcher(config) {
-  console.log(`? MongoDB log watcher started (interval: ${config.log_check_interval || 300}s)`);
+  console.log(`í ½íº€ MongoDB log watcher started (interval: ${config.log_check_interval || 300}s)`);
+
+  const app = config.global?.app_name || 'unknown_app';
+  const purpose = config.global?.purpose || '';
+  const ip = getServerIP();
 
   setInterval(() => {
-    checkMongoLogs(config);
+    checkMongoLogs(config, app, ip, purpose);
   }, (config.log_check_interval || 300) * 1000);
 }
 

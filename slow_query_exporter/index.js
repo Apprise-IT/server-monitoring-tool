@@ -3,6 +3,17 @@
 const axios = require('axios');
 const mysql = require('mysql2/promise');
 const { MongoClient } = require('mongodb');
+const os = require('os');
+
+function getServerIP() {
+  const interfaces = os.networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    for (const alias of iface) {
+      if (alias.family === 'IPv4' && !alias.internal) return alias.address;
+    }
+  }
+  return 'unknown_ip';
+}
 
 async function getMongoSlowQueries(mongoConfig) {
   const client = new MongoClient(mongoConfig.mongo_uri);
@@ -61,7 +72,11 @@ async function getMySQLSlowQueries(mysqlConfig) {
 
 async function start(config) {
   try {
-    console.log('? Slow Query Exporter started');
+    console.log('Ì†ΩÌ∫Ä Slow Query Exporter started');
+
+    const app = config.global?.app_name || 'unknown_app';
+    const purpose = config.global?.purpose || '';
+    const ip = getServerIP();
 
     setInterval(async () => {
       try {
@@ -71,27 +86,31 @@ async function start(config) {
         ]);
 
         const payload = {
+          app,
+          ip,
+          purpose,
           source: 'slow_query_exporter',
           timestamp: new Date().toISOString(),
           metrics: {
             mongo_slow_queries: mongoSlow,
             mysql_slow_queries: mysqlSlow,
-          }
+          },
+          file_path: `metrics_collector/${app}/${ip}/slowquery/${new Date().toISOString().slice(0, 10)}/${Date.now()}.jsonl.gz`,
+          log_file_path: `metrics_collector/${app}/${ip}/logs/slowquery/${new Date().toISOString().slice(0, 10)}/${Date.now()}.jsonl.gz`
         };
-          
-        console.log(JSON.stringify(payload, null, 2));
+
+        //console.log(JSON.stringify(payload, null, 2));
         await axios.post(config.receiver_url, payload);
-        
-        console.log(`?? Sent slow query data to ${config.receiver_url}`);
+
+        console.log(`‚úÖ Sent slow query data to ${config.receiver_url}`);
       } catch (err) {
-        console.error('? Error exporting slow queries:', err.message);
+        console.error('‚ùå Error exporting slow queries:', err.message);
       }
     }, (config.export_interval || 1800) * 1000);
 
   } catch (err) {
-    console.error('? Slow Query Exporter error:', err.message);
+    console.error('‚ùå Slow Query Exporter error:', err.message);
   }
 }
 
 module.exports = { start };
-

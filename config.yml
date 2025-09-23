@@ -1,8 +1,8 @@
 global:
   app_name: "livo"
-  purpose: "LIVO API"
+  purpose: "Test Server"
 redis_exporter:
-  enabled: false
+  enabled: true
   redis_host: "127.0.0.1"
   redis_port: 6379
   redis_password: ""
@@ -11,30 +11,30 @@ redis_exporter:
   receiver_url_logs: "http://127.0.0.1:4000/logs/redis"
   error_export_interval: 60   # seconds
   redis_log_file: "/var/log/redis/redis-server.log"
-  log_check_interval: 300     # every 5 minutes
+  log_check_interval: 30     # every 5 minutes
   max_logs_per_batch: 100     # cap at 100 logs per run
 
 mysql_exporter:
   enabled: true
   mysql_host: "127.0.0.1"
-  mysql_port: 1278
+  mysql_port: 3306
   mysql_user: 'livoadmin'
   mysql_password: 'LIV0@#aeoer@'
   receiver_url: "http://157.245.207.91:4000/metrics/mysql"
   export_interval: 30
   receiver_url_logs: "http://157.245.207.91:4000/logs/mysql"
   mysql_log_file: "/var/log/mysql/error.log"
-  log_check_interval: 300     # every 5 minutes
+  log_check_interval: 30     # every 5 minutes
   max_logs_per_batch: 100     # cap at 100 logs per run
 
 mongodb_exporter:
-  enabled: false
+  enabled: true
   mongo_uri: "mongodb://livoadmin:LIV0%40%23aeoer%40@127.0.0.1:27017/admin"
   export_interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/mongo"
   receiver_url_logs: "http://157.245.207.91:4000/logs/mongo"
   mongo_log_file: "/var/log/mongodb/mongod.log"
-  log_check_interval: 300
+  log_check_interval: 30
   max_logs_per_batch: 100
 
 linux_exporter:
@@ -43,7 +43,7 @@ linux_exporter:
   receiver_url: "http://157.245.207.91:4000/metrics/linux"
   
 slow_query_exporter:
-  enabled: false
+  enabled: true
   export_interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/slow_queries"
 
@@ -54,7 +54,7 @@ slow_query_exporter:
 
   # MySQL
   mysql_host: "127.0.0.1"
-  mysql_port: 1278
+  mysql_port: 3306
   mysql_user: "livoadmin"
   mysql_password: "LIV0@#aeoer@"
   max_queries: 50

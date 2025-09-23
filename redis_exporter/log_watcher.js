@@ -1,75 +1,83 @@
 // redis_exporter/log_watcher.js
 const fs = require("fs");
 const axios = require("axios");
+const os = require("os");
+const moment = require("moment");
 
-let lastSize = 0; // track where we left off
+function getServerIP() {
+  const interfaces = os.networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    for (const alias of iface) {
+      if (alias.family === "IPv4" && !alias.internal) return alias.address;
+    }
+  }
+  return "unknown_ip";
+}
 
-async function checkRedisLogs(config) {
+async function checkRedisLogs(config, app, ip, purpose) {
   const logFile = config.redis_log_file || "/var/log/redis/redis-server.log";
-  const maxLogsPerBatch = config.max_logs_per_batch || 100; // cap per run
+  const maxLogsPerBatch = config.max_logs_per_batch || 100;
 
   try {
-    const stats = fs.statSync(logFile);
+    const data = fs.readFileSync(logFile, "utf8");
+    const lines = data.split("\n").filter((l) => l.trim());
+    const errorLines = lines.filter((l) => /ERR|WARN/i.test(l));
 
-    // if file rotated or truncated, reset
-    if (stats.size < lastSize) {
-      lastSize = 0;
+    if (errorLines.length === 0) {
+      console.log("â„¹ No Redis error logs found");
+      return;
     }
 
-    // read only the new portion
-    const stream = fs.createReadStream(logFile, {
-      start: lastSize,
-      end: stats.size,
-      encoding: "utf8",
-    });
+    // Take only last maxLogsPerBatch
+    const limitedErrors = errorLines.slice(-maxLogsPerBatch);
 
-    let buffer = "";
-    stream.on("data", (chunk) => (buffer += chunk));
+    const logs = limitedErrors.map((line) => ({
+      source: "redis",
+      level: /ERR/i.test(line) ? "error" : "warn",
+      message: line,
+      timestamp: new Date().toISOString(),
+    }));
 
-    stream.on("end", async () => {
-      lastSize = stats.size;
+    const timestamp = moment();
+    const dateStr = timestamp.format("YYYY-MM-DD");
+    const timeStr = timestamp.format("hh:mm:ssA");
 
-      const lines = buffer.split("\n").filter((l) => l.trim());
-      const errorLines = lines.filter((l) => /ERR|WARN/i.test(l));
+    const payload = {
+      app,
+      ip,
+      purpose,
+      source: "redis_log_watcher",
+      logs,
+      timestamp: timestamp.toISOString(),
+      file_path: `metrics_collector/${app}/${ip}/redis_logs/${dateStr}/${timeStr}.jsonl.gz`,
+      log_file_path: `metrics_collector/${app}/${ip}/logs/redis/${dateStr}/${timeStr}.jsonl.gz`,
+    };
 
-      if (errorLines.length > 0) {
-        // cap logs if too many
-        const limitedErrors = errorLines.slice(-maxLogsPerBatch);
+    console.log({ payload });
 
-        const logs = limitedErrors.map((line) => ({
-          source: "redis",
-          level: /ERR/i.test(line) ? "error" : "warn",
-          message: line,
-          timestamp: new Date().toISOString(),
-        }));
-
-        try {
-          await axios.post(config.receiver_url_logs, { logs });
-          console.log(
-            `?? Exported ${logs.length} Redis logs (capped at ${maxLogsPerBatch})`
-          );
-        } catch (err) {
-          console.error("? Failed to send Redis logs:", err.message);
-        }
-      } else {
-        console.log("?? No new Redis error logs found");
-      }
-    });
+    try {
+      await axios.post(config.receiver_url_logs, payload);
+      console.log(`âœ… Exported ${logs.length} Redis logs to ${config.receiver_url_logs}`);
+    } catch (err) {
+      console.error("âŒ Failed to send Redis logs:", err.message);
+    }
   } catch (err) {
-    console.error("? Redis log watcher failed:", err.message);
+    console.error("âŒ Redis log watcher error:", err.message);
   }
 }
 
 function startLogWatcher(config) {
   console.log(
-    `? Redis log watcher started (interval: ${
-      config.log_check_interval || 300
-    } sec, max logs per batch: ${config.max_logs_per_batch || 100})`
+    `í ½íº€ Redis log watcher started (interval: ${config.log_check_interval || 300}s, max logs per batch: ${config.max_logs_per_batch || 100})`
   );
 
+  const app = config.global?.app_name || "unknown_app";
+  const purpose = config.global?.purpose || "";
+  const ip = getServerIP();
+
   setInterval(() => {
-    checkRedisLogs(config);
-  }, (config.log_check_interval || 300) * 1000); // default 5 min
+    checkRedisLogs(config, app, ip, purpose);
+  }, (config.log_check_interval || 300) * 1000);
 }
 
 module.exports = { startLogWatcher };
