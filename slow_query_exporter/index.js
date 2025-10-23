@@ -72,7 +72,7 @@ async function getMySQLSlowQueries(mysqlConfig) {
 
 async function start(config) {
   try {
-    console.log('Ì†ΩÌ∫Ä Slow Query Exporter started');
+    console.log('üöÄ Slow Query Exporter started');
 
     const app = config.global?.app_name || 'unknown_app';
     const purpose = config.global?.purpose || '';
@@ -80,11 +80,16 @@ async function start(config) {
 
     setInterval(async () => {
       try {
-        const [mongoSlow, mysqlSlow] = await Promise.all([
+        const [mongoResult, mysqlResult] = await Promise.allSettled([
           getMongoSlowQueries(config),
           getMySQLSlowQueries(config),
         ]);
-
+    
+        const mongoSlow =
+          mongoResult.status === 'fulfilled' ? mongoResult.value : [];
+        const mysqlSlow =
+          mysqlResult.status === 'fulfilled' ? mysqlResult.value : [];
+    
         const payload = {
           app,
           ip,
@@ -95,13 +100,15 @@ async function start(config) {
             mongo_slow_queries: mongoSlow,
             mysql_slow_queries: mysqlSlow,
           },
-          file_path: `metrics_collector/${app}/${ip}/slowquery/${new Date().toISOString().slice(0, 10)}/${Date.now()}.jsonl.gz`,
-          log_file_path: `metrics_collector/${app}/${ip}/logs/slowquery/${new Date().toISOString().slice(0, 10)}/${Date.now()}.jsonl.gz`
+          file_path: `metrics_collector/${app}/${ip}/slowquery/${new Date()
+            .toISOString()
+            .slice(0, 10)}/${Date.now()}.jsonl.gz`,
+          log_file_path: `metrics_collector/${app}/${ip}/logs/slowquery/${new Date()
+            .toISOString()
+            .slice(0, 10)}/${Date.now()}.jsonl.gz`,
         };
-
-        //console.log(JSON.stringify(payload, null, 2));
+    
         await axios.post(config.receiver_url, payload);
-
         console.log(`‚úÖ Sent slow query data to ${config.receiver_url}`);
       } catch (err) {
         console.error('‚ùå Error exporting slow queries:', err.message);
