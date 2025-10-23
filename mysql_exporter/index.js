@@ -98,7 +98,7 @@ async function getQueryDigestMetrics() {
 
     const [rows] = await connection.query(`
       SELECT 
-        SUM(SUM_TIMER_WAIT)/SUM(COUNT_STAR)/1000000 AS raw_avg_query_time,
+        SUM(SUM_TIMER_WAIT)/SUM(COUNT_STAR)/1000000000 AS raw_avg_query_time,
         SUM(CASE WHEN DIGEST_TEXT LIKE 'SELECT%' THEN SUM_TIMER_WAIT END) AS select_time,
         SUM(CASE WHEN DIGEST_TEXT LIKE 'SELECT%' THEN COUNT_STAR END) AS select_count,
         SUM(CASE WHEN DIGEST_TEXT LIKE 'INSERT%' THEN SUM_TIMER_WAIT END) AS create_time,
@@ -123,10 +123,10 @@ async function getQueryDigestMetrics() {
     const delete_count = r.delete_count || 0;
 
     // Compute per-operation averages safely
-    const select_avg_query_time_ms = select_count ? select_time / select_count / 1000000 : 0;
-    const create_avg_query_time_ms = create_count ? create_time / create_count / 1000000 : 0;
-    const update_avg_query_time_ms = update_count ? update_time / update_count / 1000000 : 0;
-    const delete_avg_query_time_ms = delete_count ? delete_time / delete_count / 1000000 : 0;
+    const select_avg_query_time_ms = select_count ? select_time / select_count / 1000000000 : 0;
+    const create_avg_query_time_ms = create_count ? create_time / create_count / 1000000000 : 0;
+    const update_avg_query_time_ms = update_count ? update_time / update_count / 1000000000 : 0;
+    const delete_avg_query_time_ms = delete_count ? delete_time / delete_count / 1000000000 : 0;
 
     // Overall weighted average
     const totalTime = (select_avg_query_time_ms * select_count) +
