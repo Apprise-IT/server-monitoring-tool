@@ -63,7 +63,7 @@ async function getMySQLSlowQueries(mysqlConfig) {
       start_time: row.start_time,
       user_host: row.user_host,
       query_time: row.query_time,
-      sql_text: row.sql_text,
+      sql_text: row.sql_text.toString(),
     }));
   } finally {
     await connection.end();
