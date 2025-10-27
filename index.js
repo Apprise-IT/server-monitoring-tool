@@ -44,3 +44,4 @@ initExporter("mysql", "mysql_exporter");
 initExporter("mongodb", "mongodb_exporter");
 initExporter("slow_query", "slow_query_exporter");
 initExporter("linux", "linux_exporter");
+initExporter("api_logs", "api_log_exporter");
