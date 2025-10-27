@@ -58,3 +58,10 @@ slow_query_exporter:
   mysql_user: "livoadmin"
   mysql_password: "LIV0@#aeoer@"
   max_queries: 50
+api_log_exporter:
+  enabled: true
+  access_log_path: /var/log/nginx/access.log
+  log_window_minutes: 30
+  max_logs: 100
+  export_interval: 1800
+  receiver_url: http://157.245.207.91:4000/metrics/api_logs
