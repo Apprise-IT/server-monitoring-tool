@@ -18,9 +18,10 @@ function initExporter(name, folder) {
   const exporterConfig = config[`${name}_exporter`];
 
   if (exporterConfig?.enabled) {
-    console.log(`✅ Starting ${name} exporter...`);
+    console.log(`✅ Starting ${name} exporter... ${Date.now()}`);
     try {
       const exporter = require(`./${folder}`);
+      console.log({exporter});
       if (typeof exporter.start === 'function') {
         // ✅ Merge global config into exporterConfig
         exporter.start({
@@ -45,3 +46,4 @@ initExporter("mongodb", "mongodb_exporter");
 initExporter("slow_query", "slow_query_exporter");
 initExporter("linux", "linux_exporter");
 initExporter("api_log", "api_log_exporter");
+initExporter("scheduler", "scheduler_exporter");
