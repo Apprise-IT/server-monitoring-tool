@@ -18,41 +18,102 @@ function getServerIP() {
 
 async function getRedisStats() {
   try {
-    const info = await client.info();
+    // Use 'all' to ensure we get every section, including # Commandstats
+    const info = await client.info('all');
+
     const metrics = {};
     let totalKeys = 0;
+    const commandstats = {};
 
-    info.split('\n').forEach((line) => {
-      if (!line || line.startsWith('#')) return;
+    let currentSection = null;
 
-      const [key, value] = line.split(':');
-      if (!key || value === undefined) return;
+    const lines = info.split('\n');
 
-      const numVal = Number(value);
-      metrics[key.trim()] = isNaN(numVal) ? value.trim() : numVal;
+    for (let line of lines) {
+      line = line.trim();
 
-      // count total keys from keyspace lines, e.g., db0:keys=10,expires=0,avg_ttl=0
-      if (key.startsWith('db')) {
-        const match = value.match(/keys=(\d+)/);
-        if (match) totalKeys += Number(match[1]);
+      // Skip empty lines
+      if (!line) continue;
+
+      // Detect section headers like # Memory, # Commandstats, etc.
+      if (line.startsWith('#')) {
+        currentSection = line.substring(1).trim(); // e.g., "Memory", "Commandstats"
+        continue;
       }
-    });
 
+      // Split key:value
+      const colonIndex = line.indexOf(':');
+      if (colonIndex === -1) continue;
+
+      const key = line.substring(0, colonIndex).trim();
+      const value = line.substring(colonIndex + 1).trim();
+
+      if (currentSection === 'Commandstats' && key.startsWith('cmdstat_')) {
+        // Parse cmdstat_get:calls=12345,usec=67890,usec_per_call=5.49,rejected_calls=0,failed_calls=0
+        const cmdName = key.substring(8).toLowerCase(); // "get", "set", etc.
+        const parts = value.split(',');
+
+        const stats = {};
+        parts.forEach(part => {
+          const [k, v] = part.split('=');
+          if (k && v !== undefined) {
+            const num = Number(v);
+            stats[k] = isNaN(num) ? v : num;
+          }
+        });
+
+        commandstats[cmdName] = {
+          calls: stats.calls || 0,
+          usec: stats.usec || 0,
+          usec_per_call: stats.usec_per_call || 0,
+          rejected_calls: stats.rejected_calls || 0,
+          failed_calls: stats.failed_calls || 0
+        };
+      } else {
+        // Regular key-value metrics
+        const numValue = Number(value);
+        metrics[key] = isNaN(numValue) ? value : numValue;
+
+        // Accumulate total keys from all databases
+        if (key.startsWith('db')) {
+          const match = value.match(/keys=(\d+)/);
+          if (match) {
+            totalKeys += Number(match[1]);
+          }
+        }
+      }
+    }
+
+    // Add computed/aggregated fields
     metrics.total_keys = totalKeys;
+    metrics.commandstats = commandstats;
+
     return metrics;
+
   } catch (err) {
     console.error('❌ Error fetching Redis stats:', err.message);
+
+    // Return safe defaults so dashboard doesn't break
     return {
       connected_clients: 0,
+      instantaneous_ops_per_sec: 0,
       used_memory: 0,
+      used_memory_human: '0B',
       used_memory_rss: 0,
+      total_system_memory: 0,
+      total_system_memory_human: '0B',
       total_commands_processed: 0,
       total_connections_received: 0,
       expired_keys: 0,
       evicted_keys: 0,
       keyspace_hits: 0,
       keyspace_misses: 0,
-      total_keys: 0
+      instantaneous_input_kbps: 0,
+      instantaneous_output_kbps: 0,
+      connected_slaves: 0,
+      blocked_clients: 0,
+      total_keys: 0,
+      commandstats: {} // Important: always include empty object
     };
   }
 }
