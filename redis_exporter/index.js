@@ -18,12 +18,13 @@ function getServerIP() {
 
 async function getRedisStats() {
   try {
-    // Use 'all' to ensure we get every section, including # Commandstats
+    // Fetch all INFO sections including Commandstats
     const info = await client.info('all');
 
     const metrics = {};
     let totalKeys = 0;
-    const commandstats = {};
+    const commandstats = {};            // Full detailed stats (calls, usec, etc.)
+    const commandstatsAvg = {};         // NEW: Only avg time per call (usec_per_call)
 
     let currentSection = null;
 
@@ -31,17 +32,13 @@ async function getRedisStats() {
 
     for (let line of lines) {
       line = line.trim();
-
-      // Skip empty lines
       if (!line) continue;
 
-      // Detect section headers like # Memory, # Commandstats, etc.
       if (line.startsWith('#')) {
-        currentSection = line.substring(1).trim(); // e.g., "Memory", "Commandstats"
+        currentSection = line.substring(1).trim();
         continue;
       }
 
-      // Split key:value
       const colonIndex = line.indexOf(':');
       if (colonIndex === -1) continue;
 
@@ -49,8 +46,7 @@ async function getRedisStats() {
       const value = line.substring(colonIndex + 1).trim();
 
       if (currentSection === 'Commandstats' && key.startsWith('cmdstat_')) {
-        // Parse cmdstat_get:calls=12345,usec=67890,usec_per_call=5.49,rejected_calls=0,failed_calls=0
-        const cmdName = key.substring(8).toLowerCase(); // "get", "set", etc.
+        const cmdName = key.substring(8).toLowerCase(); // e.g., "zincrby"
         const parts = value.split(',');
 
         const stats = {};
@@ -62,6 +58,7 @@ async function getRedisStats() {
           }
         });
 
+        // Full stats
         commandstats[cmdName] = {
           calls: stats.calls || 0,
           usec: stats.usec || 0,
@@ -69,12 +66,18 @@ async function getRedisStats() {
           rejected_calls: stats.rejected_calls || 0,
           failed_calls: stats.failed_calls || 0
         };
+
+        // NEW: Only average time per call (in microseconds)
+        if (stats.usec_per_call !== undefined) {
+          // Keep 1 decimal place like Redis does
+          commandstatsAvg[cmdName] = Number(stats.usec_per_call.toFixed(1));
+        }
       } else {
-        // Regular key-value metrics
+        // Regular metrics
         const numValue = Number(value);
         metrics[key] = isNaN(numValue) ? value : numValue;
 
-        // Accumulate total keys from all databases
+        // Sum total keys across all databases
         if (key.startsWith('db')) {
           const match = value.match(/keys=(\d+)/);
           if (match) {
@@ -84,16 +87,16 @@ async function getRedisStats() {
       }
     }
 
-    // Add computed/aggregated fields
+    // Add aggregated fields
     metrics.total_keys = totalKeys;
-    metrics.commandstats = commandstats;
+    metrics.commandstats = commandstats;                    // Full details (for advanced use)
+    metrics.commandstats_avg_time_per_call = commandstatsAvg; // NEW: Clean format you wanted
 
     return metrics;
 
   } catch (err) {
     console.error('❌ Error fetching Redis stats:', err.message);
 
-    // Return safe defaults so dashboard doesn't break
     return {
       connected_clients: 0,
       instantaneous_ops_per_sec: 0,
@@ -113,11 +116,11 @@ async function getRedisStats() {
       connected_slaves: 0,
       blocked_clients: 0,
       total_keys: 0,
-      commandstats: {} // Important: always include empty object
+      commandstats: {},
+      commandstats_avg_time_per_call: {} // Always include, even if empty
     };
   }
 }
-
 async function sendMetrics(config, app, ip, purpose) {
   try {
     const metrics = await getRedisStats();
