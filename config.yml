@@ -1,11 +1,11 @@
 global:
   app_name: "livo"
-  purpose: "LIVO API"
+  purpose: "LIVO DB"
 redis_exporter:
   enabled: false
   redis_host: "127.0.0.1"
-  redis_port: 6379
-  redis_password: ""
+  redis_port: 4521
+  redis_password: "LIV0@#FASxl1"
   receiver_url: "http://157.245.207.91:4000/metrics/redis"
   export_interval: 30  # seconds
   receiver_url_logs: "http://127.0.0.1:4000/logs/redis"
@@ -29,7 +29,7 @@ mysql_exporter:
 
 mongodb_exporter:
   enabled: false
-  mongo_uri: "mongodb://livoadmin:LIV0%40%23aeoer%40@127.0.0.1:27017/admin"
+  mongo_uri: "mongodb://livoadmin:LIV0%40%23FASxl1@127.0.0.1:4589/livolive?authSource=livolive"
   export_interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/mongo"
   receiver_url_logs: "http://157.245.207.91:4000/logs/mongo"
@@ -41,14 +41,14 @@ linux_exporter:
   enabled: true
   interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/linux"
-  
+
 slow_query_exporter:
   enabled: false
   export_interval: 30
   receiver_url: "http://157.245.207.91:4000/metrics/slow_queries"
 
   # Mongo
-  mongo_uri: "mongodb://livoadmin:LIV0%40%23aeoer%40@127.0.0.1:27017/admin"
+  mongo_uri: "mongodb://livoadmin:LIV0%40%23FASxl1@127.0.0.1:4589/livolive?authSource=livolive"
   mongo_db: "livolive"
   mongo_slow_threshold_ms: 100
 
