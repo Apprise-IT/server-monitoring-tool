@@ -116,7 +116,8 @@ async function getMongooseLogs(config, lastExportTime) {
 // Main Exporter
 // =======================
 async function start(config) {
-  console.log('Ì†ΩÌ∫Ä API Log Exporter started');
+  console.log('üöÄ API Log Exporter started');
+
   const app = config.global?.app_name || 'unknown_app';
   const purpose = config.global?.purpose || '';
   const ip = getServerIP();
@@ -141,14 +142,13 @@ async function start(config) {
 
         allLogs.push(...logs);
 
-        // Update lastExportTime based on last log timestamp
         lastExportTime = new Date(
           new Date(logs[logs.length - 1].timestamp).getTime() + 1
         );
       }
 
       if (allLogs.length === 0) {
-        console.log('? No new logs found in this interval.');
+        console.log('‚ÑπÔ∏è No new logs found in this interval.');
         return;
       }
 
@@ -165,6 +165,8 @@ async function start(config) {
       console.error('‚ùå Error exporting API logs:', err.message);
     }
   }, (config.export_interval || 300) * 1000);
+
+  return true; // ‚úÖ SIGNAL SUCCESSFUL START
 }
 
 module.exports = { start };

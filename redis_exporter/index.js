@@ -18,16 +18,14 @@ function getServerIP() {
 
 async function getRedisStats() {
   try {
-    // Fetch all INFO sections including Commandstats
     const info = await client.info('all');
 
     const metrics = {};
     let totalKeys = 0;
-    const commandstats = {};            // Full detailed stats (calls, usec, etc.)
-    const commandstatsAvg = {};         // NEW: Only avg time per call (usec_per_call)
+    const commandstats = {};
+    const commandstatsAvg = {};
 
     let currentSection = null;
-
     const lines = info.split('\n');
 
     for (let line of lines) {
@@ -46,7 +44,7 @@ async function getRedisStats() {
       const value = line.substring(colonIndex + 1).trim();
 
       if (currentSection === 'Commandstats' && key.startsWith('cmdstat_')) {
-        const cmdName = key.substring(8).toLowerCase(); // e.g., "zincrby"
+        const cmdName = key.substring(8).toLowerCase();
         const parts = value.split(',');
 
         const stats = {};
@@ -58,7 +56,6 @@ async function getRedisStats() {
           }
         });
 
-        // Full stats
         commandstats[cmdName] = {
           calls: stats.calls || 0,
           usec: stats.usec || 0,
@@ -67,36 +64,27 @@ async function getRedisStats() {
           failed_calls: stats.failed_calls || 0
         };
 
-        // NEW: Only average time per call (in microseconds)
         if (stats.usec_per_call !== undefined) {
-          // Keep 1 decimal place like Redis does
           commandstatsAvg[cmdName] = Number(stats.usec_per_call.toFixed(1));
         }
       } else {
-        // Regular metrics
         const numValue = Number(value);
         metrics[key] = isNaN(numValue) ? value : numValue;
 
-        // Sum total keys across all databases
         if (key.startsWith('db')) {
           const match = value.match(/keys=(\d+)/);
-          if (match) {
-            totalKeys += Number(match[1]);
-          }
+          if (match) totalKeys += Number(match[1]);
         }
       }
     }
 
-    // Add aggregated fields
     metrics.total_keys = totalKeys;
-    metrics.commandstats = commandstats;                    // Full details (for advanced use)
-    metrics.commandstats_avg_time_per_call = commandstatsAvg; // NEW: Clean format you wanted
+    metrics.commandstats = commandstats;
+    metrics.commandstats_avg_time_per_call = commandstatsAvg;
 
     return metrics;
-
   } catch (err) {
     console.error('❌ Error fetching Redis stats:', err.message);
-
     return {
       connected_clients: 0,
       instantaneous_ops_per_sec: 0,
@@ -117,10 +105,11 @@ async function getRedisStats() {
       blocked_clients: 0,
       total_keys: 0,
       commandstats: {},
-      commandstats_avg_time_per_call: {} // Always include, even if empty
+      commandstats_avg_time_per_call: {}
     };
   }
 }
+
 async function sendMetrics(config, app, ip, purpose) {
   try {
     const metrics = await getRedisStats();
@@ -141,8 +130,10 @@ async function sendMetrics(config, app, ip, purpose) {
 
     await axios.post(config.receiver_url, payload);
     console.log(`✅ Sent Redis metrics to ${config.receiver_url}`);
+    return true;
   } catch (err) {
     console.error('❌ Error exporting Redis metrics:', err.message);
+    return false;
   }
 }
 
@@ -157,7 +148,7 @@ function scheduleNext(config, app, ip, purpose, intervalMs) {
   }, delay);
 }
 
-function start(config) {
+async function start(config) {
   const app = config.global?.app_name || 'unknown_app';
   const purpose = config.global?.purpose || '';
   const ip = getServerIP();
@@ -172,20 +163,24 @@ function start(config) {
 
   client.on('error', (err) => console.error('Redis Client Error:', err.message));
 
-  client.connect()
-    .then(() => {
-      console.log('✅ Redis Exporter connected');
+  try {
+    await client.connect();
+    console.log('✅ Redis Exporter connected');
 
-      const intervalMs = (config.export_interval || 30) * 1000;
-      scheduleNext(config, app, ip, purpose, intervalMs);
+    const intervalMs = (config.export_interval || 30) * 1000;
+    scheduleNext(config, app, ip, purpose, intervalMs);
 
-      if (config.redis_log_file && config.receiver_url_logs) {
-        startLogWatcher(config);
-      } else {
-        console.warn('⚠ Redis log watcher not started: check redis_log_file and receiver_url_logs in config');
-      }
-    })
-    .catch((err) => console.error('❌ Redis client connection failed:', err.message));
+    if (config.redis_log_file && config.receiver_url_logs) {
+      startLogWatcher(config);
+    } else {
+      console.warn('⚠ Redis log watcher not started: check redis_log_file and receiver_url_logs in config');
+    }
+
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to connect to Redis:', err.message);
+    return false;
+  }
 }
 
 module.exports = { start };

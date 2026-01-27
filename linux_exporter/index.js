@@ -1,7 +1,8 @@
+'use strict';
+
 const osu = require('node-os-utils');
 const axios = require('axios');
 const os = require('os');
-const moment = require('moment');
 const { exec } = require('child_process');
 
 function getServerIP() {
@@ -16,12 +17,12 @@ function getServerIP() {
   return 'unknown_ip';
 }
 
-// New helper: get process stats aggregated by command
 function getProcessStats() {
   return new Promise((resolve, reject) => {
     const cmd = `
       ps -eo comm,%cpu,%mem | awk 'NR>1 {cpu[$1]+=$2; mem[$1]+=$3; count[$1]++} END {for (p in count) print p,count[p],cpu[p],mem[p]}' | sort -k3 -nr
     `;
+
     exec(cmd, (err, stdout, stderr) => {
       if (err) return reject(err);
       const lines = stdout.trim().split('\n');
@@ -46,7 +47,7 @@ async function getLinuxStats() {
   const netStats = await osu.netstat.inOut();
   const uptime = osu.os.uptime();
   const loadAvg = os.loadavg();
-  const processes = await getProcessStats(); // aggregated processes
+  const processes = await getProcessStats();
 
   return {
     cpu_usage_percent: cpuUsage,
@@ -62,13 +63,12 @@ async function getLinuxStats() {
     load_avg_1: loadAvg[0],
     load_avg_5: loadAvg[1],
     load_avg_15: loadAvg[2],
-    processes // <-- added here
+    processes
   };
 }
 
-// rest of your start function remains unchanged
 async function start(config) {
-  console.log('? Linux Exporter started');
+  console.log('🚀 Linux Exporter started');
 
   const ip = getServerIP();
   const app = config.global?.app_name || 'unknown_app';
@@ -79,9 +79,9 @@ async function start(config) {
   async function sendMetrics() {
     try {
       const metrics = await getLinuxStats();
-      const timestamp = moment();
-      const dateStr = timestamp.format('YYYY-MM-DD');
-      const timeStr = timestamp.format('hh:mm:ssA');
+      const timestamp = new Date();
+      const dateStr = timestamp.toISOString().split('T')[0];
+      const timeStr = timestamp.toISOString().split('T')[1].replace('Z', '');
 
       const payload = {
         app,
@@ -94,10 +94,13 @@ async function start(config) {
         log_file_path: `metrics_collector/${app}/${ip}/logs/${source}/${dateStr}/${timeStr}.jsonl.gz`
       };
 
-      await axios.post(config.receiver_url, payload);
-      console.log(`?? Sent Linux metrics to ${config.receiver_url}`);
+      await axios.post(config.receiver_url, payload, { timeout: 5000 });
+
+      console.log(`✅ Sent Linux metrics to ${config.receiver_url}`);
+      return true;
     } catch (err) {
-      console.error('? Error exporting Linux metrics:', err.message);
+      console.error('❌ Error exporting Linux metrics:', err.message);
+      return false;
     }
   }
 
@@ -113,6 +116,8 @@ async function start(config) {
   }
 
   scheduleNext();
+
+  return true; // <-- IMPORTANT
 }
 
 module.exports = { start };
